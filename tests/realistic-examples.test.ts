@@ -2,6 +2,8 @@ import { test } from "bun:test"
 import type { WindingBreakoutSolverInput } from "../lib"
 import { expectSolverExampleToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 
+// Keep this destination-annotated fixture byte-for-byte identical across the
+// stacked PRs so the visual diff isolates solver output rather than input.
 const qfp16ToHeaderAndReset = {
   regions: [
     {
@@ -70,7 +72,7 @@ const qfp16ToHeaderAndReset = {
     },
   ],
   boundaryPointSpacing: 0.55,
-} satisfies WindingBreakoutSolverInput
+} as unknown as WindingBreakoutSolverInput
 
 const mcuToSpiFlash = {
   regions: [
