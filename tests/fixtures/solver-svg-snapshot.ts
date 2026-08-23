@@ -3,17 +3,20 @@ import { type GraphicsObject, getSvgFromGraphicsObject } from "graphics-debug"
 import { stackSvgsHorizontally, stackSvgsVertically } from "stack-svgs"
 import {
   WindingBreakoutSolver,
+  type WindingBreakoutOutput,
   type WindingBreakoutSolverInput,
 } from "../../lib"
 import { getLayerNames } from "../../lib/get-layer-names"
-
-const isFinitePoint = (point: { x: number; y: number }): boolean =>
-  Number.isFinite(point.x) && Number.isFinite(point.y)
+import { getCanonicalConnections } from "../../lib/input/get-canonical-connections"
+import { getConnectionColor } from "../../lib/visualization/get-connection-color"
+import { getGraphicsLayer } from "../../lib/visualization/get-graphics-layer"
 
 const MIN_SNAPSHOT_STROKE_WIDTH = 1.5
 const PANEL_WIDTH = 600
-const PANEL_HEADER_HEIGHT = 88
-const PANEL_BODY_HEIGHT = 512
+const PANEL_BODY_HEIGHT = 480
+const COMBINED_WIDTH = PANEL_WIDTH * 2 + 16
+const EXAMPLE_HEADER_HEIGHT = 176
+const EPSILON = 1e-9
 
 const STANDARD_LAYER_COLORS: Readonly<Record<string, string>> = {
   top: "#dc2626",
@@ -33,14 +36,31 @@ const FALLBACK_LAYER_COLORS = [
   "#4f46e5",
 ] as const
 
-const ensureReadableStrokeWidths = (svg: string): string =>
-  svg.replace(
-    /stroke-width="([0-9.]+)(?:px)?"/g,
-    (attribute, rawWidth: string) =>
-      Number(rawWidth) < MIN_SNAPSHOT_STROKE_WIDTH
-        ? `stroke-width="${MIN_SNAPSHOT_STROKE_WIDTH}"`
-        : attribute,
-  )
+interface Point {
+  readonly x: number
+  readonly y: number
+}
+
+interface EndpointWithExternalDestination {
+  readonly externalDestination?: Point
+}
+
+interface GuidePolyline {
+  readonly connectionId: string
+  readonly layer: string
+  readonly points: readonly Point[]
+}
+
+const ensureReadableGuideStrokes = (svg: string): string =>
+  svg
+    .replace(
+      /stroke-width="([0-9.]+)(?:px)?"/g,
+      (attribute, rawWidth: string) =>
+        Number(rawWidth) < MIN_SNAPSHOT_STROKE_WIDTH
+          ? `stroke-width="${MIN_SNAPSHOT_STROKE_WIDTH}"`
+          : attribute,
+    )
+    .replace(/stroke-dasharray="[0-9. ]+"/g, 'stroke-dasharray="5 5"')
 
 const getLayerColor = (layerName: string, index: number): string =>
   STANDARD_LAYER_COLORS[layerName] ??
@@ -67,32 +87,23 @@ const escapeXml = (text: string): string =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;")
 
-const createPanelHeaderSvg = ({
+const createExampleHeaderSvg = ({
   title,
-  subtitle,
-  note,
+  solved,
+  intersectionCount,
+  layerNames,
 }: {
   title: string
-  subtitle: string
-  note?: string
-}): string =>
-  `<svg width="${PANEL_WIDTH}" height="${PANEL_HEADER_HEIGHT}" viewBox="0 0 ${PANEL_WIDTH} ${PANEL_HEADER_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#ffffff"/><text x="16" y="25" font-family="sans-serif" font-size="17" font-weight="700" fill="#0f172a">${escapeXml(title)}</text><text x="16" y="49" font-family="sans-serif" font-size="13" fill="#475569">${subtitle}</text>${note ? `<text x="16" y="70" font-family="sans-serif" font-size="11" fill="#64748b">${escapeXml(note)}</text>` : ""}</svg>`
-
-const addPanelHeader = ({
-  svg,
-  title,
-  subtitle,
-  note,
-}: {
-  svg: string
-  title: string
-  subtitle: string
-  note?: string
-}): string =>
-  stackSvgsVertically([createPanelHeaderSvg({ title, subtitle, note }), svg], {
-    gap: 0,
-    normalizeSize: false,
-  })
+  solved: boolean
+  intersectionCount: number
+  layerNames: readonly string[]
+}): string => {
+  const status = solved ? "SOLVED" : "FAILED"
+  const statusColor = solved ? "#15803d" : "#b91c1c"
+  const intersectionLabel = `${intersectionCount} same-layer guide intersection${intersectionCount === 1 ? "" : "s"}`
+  const rightColumnX = PANEL_WIDTH + 32
+  return `<svg width="${COMBINED_WIDTH}" height="${EXAMPLE_HEADER_HEIGHT}" viewBox="0 0 ${COMBINED_WIDTH} ${EXAMPLE_HEADER_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#ffffff"/><text x="16" y="27" font-family="sans-serif" font-size="20" font-weight="700" fill="#0f172a">${escapeXml(title)}</text><text x="16" y="52" font-family="sans-serif" font-size="14"><tspan font-weight="700" fill="${statusColor}">${status}</tspan><tspan fill="#475569"> · ${escapeXml(intersectionLabel)}</tspan></text><text x="16" y="76" font-family="sans-serif" font-size="12" fill="#475569">Rectangles = breakout regions · circles = component pads · labeled points = solver-selected boundary gates</text><text x="16" y="95" font-family="sans-serif" font-size="12" fill="#64748b">Dashed paths are straight-line routing guides, not generated copper traces</text><text x="16" y="130" font-family="sans-serif" font-size="16" font-weight="700" fill="#0f172a">CONNECTION / NET COLORS</text><text x="16" y="153" font-family="sans-serif" font-size="12" fill="#475569">Each color follows one connection through its boundary gates</text><text x="${rightColumnX}" y="130" font-family="sans-serif" font-size="16" font-weight="700" fill="#0f172a">PCB LAYER COLORS</text><text x="${rightColumnX}" y="153" font-family="sans-serif" font-size="12" fill="#475569">${createLayerLegend(layerNames)}</text><text x="${rightColumnX}" y="171" font-family="sans-serif" font-size="11" fill="#64748b">Gray = geometry shared by multiple layers</text></svg>`
+}
 
 const createLayerLegend = (layerNames: readonly string[]): string =>
   layerNames
@@ -134,186 +145,222 @@ const recolorGraphicsByLayer = (
   }
 }
 
-const renderGraphicsSvg = ({
-  graphics,
-  includeTextLabels,
-  svgWidth,
-  svgHeight,
-}: {
-  graphics: GraphicsObject
-  includeTextLabels: boolean
-  svgWidth: number
-  svgHeight: number
-}): string =>
-  ensureReadableStrokeWidths(
+const renderGraphicsSvg = (graphics: GraphicsObject): string =>
+  ensureReadableGuideStrokes(
     getSvgFromGraphicsObject(graphics, {
       backgroundColor: "#ffffff",
-      includeTextLabels,
-      svgWidth,
-      svgHeight,
+      includeTextLabels: true,
+      svgWidth: PANEL_WIDTH,
+      svgHeight: PANEL_BODY_HEIGHT,
     }),
   )
 
-const createInvalidInputGraphics = (
+const getExternalDestination = (endpoint: object): Point | undefined =>
+  (endpoint as EndpointWithExternalDestination).externalDestination
+
+const pointsEqual = (first: Point, second: Point): boolean =>
+  Math.abs(first.x - second.x) < EPSILON &&
+  Math.abs(first.y - second.y) < EPSILON
+
+const createGuidePolylines = (
   input: WindingBreakoutSolverInput,
-  error: string,
-): GraphicsObject => {
-  const finiteRegions = input.regions.filter(
-    (region) =>
-      Number.isFinite(region.bounds.minX) &&
-      Number.isFinite(region.bounds.maxX) &&
-      Number.isFinite(region.bounds.minY) &&
-      Number.isFinite(region.bounds.maxY),
-  )
-  const minX =
-    finiteRegions.length > 0
-      ? Math.min(...finiteRegions.map((region) => region.bounds.minX))
-      : -2
-  const maxY =
-    finiteRegions.length > 0
-      ? Math.max(...finiteRegions.map((region) => region.bounds.maxY))
-      : 2
-  const connections = input.connections.flatMap((connection) =>
-    "type" in connection ? connection.connections : [connection],
-  )
-  const endpointPoints = connections.flatMap((connection) =>
-    connection.endpoints.flatMap((endpoint) =>
-      isFinitePoint(endpoint.position)
-        ? [
-            {
-              ...endpoint.position,
-              color: "#dc2626",
-              label: `${connection.id} · ${endpoint.regionId}`,
-            },
-          ]
-        : [],
-    ),
-  )
-  return {
-    title: "Invalid winding breakout input",
-    coordinateSystem: "cartesian",
-    rects:
-      finiteRegions.length > 0
-        ? finiteRegions.map((region) => ({
-            center: {
-              x: (region.bounds.minX + region.bounds.maxX) / 2,
-              y: (region.bounds.minY + region.bounds.maxY) / 2,
-            },
-            width: region.bounds.maxX - region.bounds.minX,
-            height: region.bounds.maxY - region.bounds.minY,
-            fill: "rgba(254, 226, 226, 0.2)",
-            stroke: "#ef4444",
-            label: region.id,
-          }))
-        : [
-            {
-              center: { x: 0, y: 0 },
-              width: 4,
-              height: 4,
-              fill: "rgba(254, 226, 226, 0.2)",
-              stroke: "#ef4444",
-              label: "no regions",
-            },
-          ],
-    points: endpointPoints,
-    texts: [
-      {
-        x: minX,
-        y: maxY + 0.7,
-        text: "Input validation failed",
-        anchorSide: "bottom_left",
-        color: "#991b1b",
-        fontSize: 0.34,
-      },
-      {
-        x: minX,
-        y: maxY + 0.35,
-        text: error,
-        anchorSide: "bottom_left",
-        color: "#7f1d1d",
-        fontSize: 0.2,
-      },
-    ],
+  output: WindingBreakoutOutput,
+): GuidePolyline[] =>
+  getCanonicalConnections(input).flatMap((connection) => {
+    const breakoutPoints = output.breakoutPoints.filter(
+      (point) => point.connectionId === connection.id,
+    )
+    const layer = breakoutPoints[0]?.layer
+    if (!layer || breakoutPoints.length !== input.regions.length) return []
+    const points = input.regions.flatMap((region, regionIndex) => {
+      const endpoint = connection.endpoints.find(
+        (candidate) => candidate.regionId === region.id,
+      )
+      const breakout = breakoutPoints.find(
+        (candidate) => candidate.regionId === region.id,
+      )
+      if (!endpoint || !breakout) return []
+      const destination = getExternalDestination(endpoint)
+      if (input.regions.length === 1 && destination) {
+        return [endpoint.position, breakout, destination]
+      }
+      if (regionIndex === 0) return [endpoint.position, breakout]
+      return [breakout, endpoint.position]
+    })
+    return [{ connectionId: connection.id, layer, points }]
+  })
+
+const cross = (first: Point, second: Point): number =>
+  first.x * second.y - first.y * second.x
+
+const subtract = (first: Point, second: Point): Point => ({
+  x: first.x - second.x,
+  y: first.y - second.y,
+})
+
+const getSegmentIntersection = (
+  firstStart: Point,
+  firstEnd: Point,
+  secondStart: Point,
+  secondEnd: Point,
+): Point | undefined => {
+  const firstVector = subtract(firstEnd, firstStart)
+  const secondVector = subtract(secondEnd, secondStart)
+  const denominator = cross(firstVector, secondVector)
+  if (Math.abs(denominator) < EPSILON) return undefined
+  const betweenStarts = subtract(secondStart, firstStart)
+  const firstDistance = cross(betweenStarts, secondVector) / denominator
+  const secondDistance = cross(betweenStarts, firstVector) / denominator
+  if (
+    firstDistance < -EPSILON ||
+    firstDistance > 1 + EPSILON ||
+    secondDistance < -EPSILON ||
+    secondDistance > 1 + EPSILON
+  ) {
+    return undefined
   }
+  const intersection = {
+    x: firstStart.x + firstDistance * firstVector.x,
+    y: firstStart.y + firstDistance * firstVector.y,
+  }
+  const sharedEndpoint =
+    (pointsEqual(intersection, firstStart) ||
+      pointsEqual(intersection, firstEnd)) &&
+    (pointsEqual(intersection, secondStart) ||
+      pointsEqual(intersection, secondEnd))
+  return sharedEndpoint ? undefined : intersection
 }
 
-export const expectSolverToMatchSvgSnapshot = async ({
+const countSameLayerGuideIntersections = (
+  guides: readonly GuidePolyline[],
+): number => {
+  const intersections = new Set<string>()
+  for (let firstIndex = 0; firstIndex < guides.length; firstIndex += 1) {
+    const first = guides[firstIndex]!
+    for (
+      let secondIndex = firstIndex + 1;
+      secondIndex < guides.length;
+      secondIndex += 1
+    ) {
+      const second = guides[secondIndex]!
+      if (first.layer !== second.layer) continue
+      for (
+        let firstSegmentIndex = 0;
+        firstSegmentIndex < first.points.length - 1;
+        firstSegmentIndex += 1
+      ) {
+        for (
+          let secondSegmentIndex = 0;
+          secondSegmentIndex < second.points.length - 1;
+          secondSegmentIndex += 1
+        ) {
+          const intersection = getSegmentIntersection(
+            first.points[firstSegmentIndex]!,
+            first.points[firstSegmentIndex + 1]!,
+            second.points[secondSegmentIndex]!,
+            second.points[secondSegmentIndex + 1]!,
+          )
+          if (!intersection) continue
+          intersections.add(
+            `${first.connectionId}:${second.connectionId}:${intersection.x.toFixed(6)}:${intersection.y.toFixed(6)}`,
+          )
+        }
+      }
+    }
+  }
+  return intersections.size
+}
+
+const addExternalDestinationGuides = (
+  graphics: GraphicsObject,
+  input: WindingBreakoutSolverInput,
+  output: WindingBreakoutOutput,
+): GraphicsObject => {
+  const lines = [...(graphics.lines ?? [])]
+  const points = [...(graphics.points ?? [])]
+  for (const connection of getCanonicalConnections(input)) {
+    for (const endpoint of connection.endpoints) {
+      const destination = getExternalDestination(endpoint)
+      if (!destination) continue
+      const breakout = output.breakoutPoints.find(
+        (point) =>
+          point.connectionId === connection.id &&
+          point.regionId === endpoint.regionId,
+      )
+      if (!breakout) continue
+      const layer = getGraphicsLayer(input, [breakout.layer])
+      if (!points.some((point) => pointsEqual(point, destination))) {
+        points.push({
+          ...destination,
+          color: getConnectionColor(connection.id),
+          label: `${connection.id} · destination`,
+          layer,
+        })
+      }
+      const destinationAlreadyConnected = lines.some((line) =>
+        line.points?.some((point) => pointsEqual(point, destination)),
+      )
+      if (!destinationAlreadyConnected) {
+        lines.push({
+          points: [breakout, destination],
+          strokeColor: `${getConnectionColor(connection.id)}55`,
+          strokeWidth: 0.012,
+          strokeDash: [0.025, 0.07],
+          layer,
+        })
+      }
+    }
+  }
+  return { ...graphics, lines, points }
+}
+
+export const expectSolverExampleToMatchSvgSnapshot = async ({
   input,
   testPath,
   snapshotName,
-  solver = new WindingBreakoutSolver(input),
-  solve = true,
-  graphics: suppliedGraphics,
-  includeTextLabels = false,
+  title,
 }: {
   input: WindingBreakoutSolverInput
   testPath: string
   snapshotName: string
-  solver?: WindingBreakoutSolver
-  solve?: boolean
-  graphics?: GraphicsObject
-  includeTextLabels?: boolean
+  title: string
 }): Promise<void> => {
-  let graphics: GraphicsObject
-  let showLayerComparison = false
-  try {
-    if (solve && !solver.solved && !solver.failed) solver.solve()
-    graphics =
-      suppliedGraphics ??
-      (solver.failed
-        ? createInvalidInputGraphics(
-            input,
-            solver.error ?? "Unknown solver failure",
-          )
-        : (solver.finalVisualize() ?? solver.initialVisualize()))
-    showLayerComparison = solver.solved && !solver.failed
-  } catch (error) {
-    graphics = createInvalidInputGraphics(
-      input,
-      error instanceof Error ? error.message : String(error),
+  const solver = new WindingBreakoutSolver(input)
+  solver.solve()
+  const output =
+    solver.solved && !solver.failed ? solver.getOutput() : undefined
+  let graphics = solver.finalVisualize() ?? solver.initialVisualize()
+  let intersectionCount = 0
+  if (output) {
+    graphics = addExternalDestinationGuides(graphics, input, output)
+    intersectionCount = countSameLayerGuideIntersections(
+      createGuidePolylines(input, output),
     )
   }
-  const svg = (
-    showLayerComparison
-      ? stackSvgsHorizontally(
-          [
-            addPanelHeader({
-              svg: renderGraphicsSvg({
-                graphics,
-                includeTextLabels,
-                svgWidth: PANEL_WIDTH,
-                svgHeight: PANEL_BODY_HEIGHT,
-              }),
-              title: "CONNECTION / NET COLORS",
-              subtitle:
-                "Each color follows one connection through its assigned gates",
-            }),
-            addPanelHeader({
-              svg: renderGraphicsSvg({
-                graphics: recolorGraphicsByLayer(graphics, input),
-                includeTextLabels,
-                svgWidth: PANEL_WIDTH,
-                svgHeight: PANEL_BODY_HEIGHT,
-              }),
-              title: "PCB LAYER COLORS",
-              subtitle: createLayerLegend(getLayerNames(input)),
-              note: "Gray = shared or multi-layer geometry",
-            }),
-          ],
-          {
-            gap: 16,
-            normalizeSize: false,
-            rootAttributes: {
-              "data-color-views": "connection-and-layer",
-            },
-          },
-        )
-      : renderGraphicsSvg({
-          graphics,
-          includeTextLabels,
-          svgWidth: 1200,
-          svgHeight: 800,
-        })
+  const panels = stackSvgsHorizontally(
+    [
+      renderGraphicsSvg(graphics),
+      renderGraphicsSvg(recolorGraphicsByLayer(graphics, input)),
+    ],
+    {
+      gap: 16,
+      normalizeSize: false,
+      rootAttributes: { "data-color-views": "connection-and-layer" },
+    },
+  )
+  const svg = stackSvgsVertically(
+    [
+      createExampleHeaderSvg({
+        title,
+        solved: solver.solved && !solver.failed,
+        intersectionCount,
+        layerNames: getLayerNames(input),
+      }),
+      panels,
+    ],
+    { gap: 0, normalizeSize: false },
   ).replace(/[ \t]+$/gm, "")
   await expect(svg).toMatchSvgSnapshot(testPath, snapshotName)
+  expect(solver.failed).toBe(false)
+  expect(solver.solved).toBe(true)
 }

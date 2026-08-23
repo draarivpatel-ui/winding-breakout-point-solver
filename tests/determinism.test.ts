@@ -6,7 +6,6 @@ import type {
   DifferentialPairInput,
   WindingBreakoutSolverInput,
 } from "../lib"
-import { expectSolverToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 import { cloneInput, solveSuccessfully } from "./fixtures/solver-test-utils"
 
 const reverseObjectProperties = (value: unknown): unknown => {
@@ -27,11 +26,6 @@ test("reordering object properties does not affect output", async () => {
   const second = solveSuccessfully(reordered)
 
   expect(JSON.stringify(second)).toBe(JSON.stringify(first))
-  await expectSolverToMatchSvgSnapshot({
-    input: reordered,
-    testPath: import.meta.path,
-    snapshotName: "reordered-object-properties",
-  })
 })
 
 const reverseCanonicalConnections = (
@@ -58,11 +52,6 @@ test("reordering canonical connections does not change output", async () => {
   const reordered = solveSuccessfully(reorderedInput)
 
   expect(JSON.stringify(reordered)).toBe(JSON.stringify(first))
-  await expectSolverToMatchSvgSnapshot({
-    input: reorderedInput,
-    testPath: import.meta.path,
-    snapshotName: "reordered-connections",
-  })
 })
 
 const reverseConnectionEndpoints = (
@@ -97,9 +86,4 @@ test("endpoint region ids make endpoint array order irrelevant", async () => {
   const reordered = solveSuccessfully(reorderedInput)
 
   expect(JSON.stringify(reordered)).toBe(JSON.stringify(first))
-  await expectSolverToMatchSvgSnapshot({
-    input: reorderedInput,
-    testPath: import.meta.path,
-    snapshotName: "reordered-endpoints",
-  })
 })

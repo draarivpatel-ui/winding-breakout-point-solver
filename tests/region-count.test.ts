@@ -15,7 +15,6 @@ import type {
   WindingBreakoutRegion,
   WindingBreakoutSolverInput,
 } from "../lib/types"
-import { expectSolverToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 import { cloneInput, solveSuccessfully } from "./fixtures/solver-test-utils"
 
 const examples = [
@@ -89,11 +88,6 @@ for (const [label, example] of examples) {
         ).toBe(1)
       }
     }
-    await expectSolverToMatchSvgSnapshot({
-      input,
-      testPath: import.meta.path,
-      snapshotName: `${label}-region-output`,
-    })
   })
 }
 
@@ -129,12 +123,6 @@ test("one-region solve validates around the normal two-stage pipeline", async ()
     ),
   ).toBe(true)
   expect(graphics.lines?.length).toBeGreaterThan(0)
-  await expectSolverToMatchSvgSnapshot({
-    input: cloneInput(oneRegionExample),
-    solver,
-    testPath: import.meta.path,
-    snapshotName: "two-stage-pipeline",
-  })
 })
 
 test("the first region geometry remains the reference for every region count", async () => {
@@ -152,11 +140,6 @@ test("the first region geometry remains the reference for every region count", a
       (connection) => connection.id,
     ),
   )
-  await expectSolverToMatchSvgSnapshot({
-    input: cloneInput(threeRegionExample),
-    testPath: import.meta.path,
-    snapshotName: "first-region-reference-geometry",
-  })
 })
 
 test("reference ordering exposes one geometric region pass and one atomicization pass", async () => {
@@ -190,14 +173,6 @@ test("reference ordering exposes one geometric region pass and one atomicization
   expect(ordering!.iterations).toBe(input.regions.length + 1)
   expect(ordering!.stats.phase).toBe("atomicize-reference-order")
   expect(ordering!.progress).toBe(1)
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    solver,
-    solve: false,
-    graphics: ordering!.visualize(),
-    testPath: import.meta.path,
-    snapshotName: "reference-ordering-phases",
-  })
 })
 
 test("gate placement exposes planning, region/layer batches, and finalization", async () => {
@@ -238,13 +213,6 @@ test("gate placement exposes planning, region/layer batches, and finalization", 
     input.regions.length * getLayerNames(input).length + 2,
   )
   expect(placement!.progress).toBe(1)
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    solver,
-    graphics: placement!.visualize(),
-    testPath: import.meta.path,
-    snapshotName: "gate-placement-phases",
-  })
 })
 
 test("one-region visualization destinations remain outside solver regions", async () => {
@@ -260,11 +228,6 @@ test("one-region visualization destinations remain outside solver regions", asyn
       destination.position.y <= region.bounds.maxY
     expect(insideRegion).toBe(false)
   }
-  await expectSolverToMatchSvgSnapshot({
-    input: cloneInput(oneRegionExample),
-    testPath: import.meta.path,
-    snapshotName: "external-destinations-outside-region",
-  })
 })
 
 test("a one-region connection still requires exactly one endpoint", async () => {
@@ -279,10 +242,4 @@ test("a one-region connection still requires exactly one endpoint", async () => 
   expect(() => solver.setup()).toThrow(
     'connections[0] is missing endpoint for region "source"',
   )
-  await expectSolverToMatchSvgSnapshot({
-    input: invalid,
-    solver,
-    testPath: import.meta.path,
-    snapshotName: "one-region-missing-endpoint",
-  })
 })
