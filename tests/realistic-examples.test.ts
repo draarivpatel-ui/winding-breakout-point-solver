@@ -2,10 +2,8 @@ import { test } from "bun:test"
 import type { WindingBreakoutSolverInput } from "../lib"
 import { expectSolverExampleToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 
-// The destination field is intentionally present in this pre-change visual
-// baseline. The current solver ignores it; #6 consumes it when choosing the
-// best breakout edge. The snapshot helper renders it in both versions so the
-// before/after geometry remains directly comparable.
+// Keep this destination-annotated fixture byte-for-byte identical across the
+// stacked PRs so the visual diff isolates solver output rather than input.
 const qfp16ToHeaderAndReset = {
   regions: [
     {
