@@ -8,6 +8,17 @@ import {
 const isFinitePoint = (point: { x: number; y: number }): boolean =>
   Number.isFinite(point.x) && Number.isFinite(point.y)
 
+const MIN_SNAPSHOT_STROKE_WIDTH = 1.5
+
+const ensureReadableStrokeWidths = (svg: string): string =>
+  svg.replace(
+    /stroke-width="([0-9.]+)(?:px)?"/g,
+    (attribute, rawWidth: string) =>
+      Number(rawWidth) < MIN_SNAPSHOT_STROKE_WIDTH
+        ? `stroke-width="${MIN_SNAPSHOT_STROKE_WIDTH}"`
+        : attribute,
+  )
+
 const createInvalidInputGraphics = (
   input: WindingBreakoutSolverInput,
   error: string,
@@ -139,11 +150,13 @@ export const expectSolverToMatchSvgSnapshot = async ({
       error instanceof Error ? error.message : String(error),
     )
   }
-  const svg = getSvgFromGraphicsObject(graphics, {
-    backgroundColor: "#ffffff",
-    includeTextLabels,
-    svgWidth: 1200,
-    svgHeight: 800,
-  }).replace(/[ \t]+$/gm, "")
+  const svg = ensureReadableStrokeWidths(
+    getSvgFromGraphicsObject(graphics, {
+      backgroundColor: "#ffffff",
+      includeTextLabels,
+      svgWidth: 1200,
+      svgHeight: 800,
+    }),
+  ).replace(/[ \t]+$/gm, "")
   await expect(svg).toMatchSvgSnapshot(testPath, snapshotName)
 }
