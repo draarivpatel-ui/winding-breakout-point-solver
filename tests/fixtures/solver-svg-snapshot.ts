@@ -43,6 +43,20 @@ const createInvalidInputGraphics = (
         : [],
     ),
   )
+  const destinationPoints = connections.flatMap((connection) =>
+    connection.endpoints.flatMap((endpoint) =>
+      endpoint.externalDestination &&
+      isFinitePoint(endpoint.externalDestination)
+        ? [
+            {
+              ...endpoint.externalDestination,
+              color: "#7c3aed",
+              label: `${connection.id} · external destination`,
+            },
+          ]
+        : [],
+    ),
+  )
   return {
     title: "Invalid winding breakout input",
     coordinateSystem: "cartesian",
@@ -69,7 +83,7 @@ const createInvalidInputGraphics = (
               label: "no regions",
             },
           ],
-    points: endpointPoints,
+    points: [...endpointPoints, ...destinationPoints],
     texts: [
       {
         x: minX,

@@ -1,14 +1,15 @@
 import { expect, test } from "bun:test"
 import { WindingBreakoutSolver, type WindingBreakoutSolverInput } from "../lib"
+import { expectSolverToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 
 const solve = (input: WindingBreakoutSolverInput) => {
   const solver = new WindingBreakoutSolver(input)
   solver.solve()
-  return solver.getOutput()
+  return solver
 }
 
-test("single-region connections use and align with nearer destination edges", () => {
-  const output = solve({
+test("single-region connections use and align with nearer destination edges", async () => {
+  const input: WindingBreakoutSolverInput = {
     regions: [
       {
         id: "controller",
@@ -50,7 +51,9 @@ test("single-region connections use and align with nearer destination edges", ()
     ],
     buses: [],
     boundaryPointSpacing: 0.5,
-  })
+  }
+  const solver = solve(input)
+  const output = solver.getOutput()
 
   expect(
     output.breakoutPoints.find((point) => point.connectionId === "RESET"),
@@ -64,10 +67,17 @@ test("single-region connections use and align with nearer destination edges", ()
     { x: 2, y: -0.25 },
     { x: 2, y: 0.25 },
   ])
+  await expectSolverToMatchSvgSnapshot({
+    input,
+    solver,
+    includeTextLabels: true,
+    testPath: import.meta.path,
+    snapshotName: "standalone-outlier-selects-nearer-edge",
+  })
 })
 
-test("bus members retain the declared edge", () => {
-  const output = solve({
+test("bus members retain the declared edge", async () => {
+  const input: WindingBreakoutSolverInput = {
     regions: [
       {
         id: "controller",
@@ -105,10 +115,19 @@ test("bus members retain the declared edge", () => {
       },
     ],
     boundaryPointSpacing: 0.5,
-  })
+  }
+  const solver = solve(input)
+  const output = solver.getOutput()
 
   expect(output.breakoutPoints.every((point) => point.x === 2)).toBe(true)
   expect(output.breakoutPoints.map((point) => point.y).sort()).toEqual([
     -0.25, 0.25,
   ])
+  await expectSolverToMatchSvgSnapshot({
+    input,
+    solver,
+    includeTextLabels: true,
+    testPath: import.meta.path,
+    snapshotName: "bus-retains-declared-edge",
+  })
 })
