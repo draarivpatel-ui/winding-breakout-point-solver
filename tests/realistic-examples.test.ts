@@ -1,4 +1,5 @@
 import { test } from "bun:test"
+import { ddrByte0Example, fullDdrExample } from "../examples/am62l"
 import type { WindingBreakoutSolverInput } from "../lib"
 import { expectSolverExampleToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 
@@ -74,129 +75,6 @@ const qfp16ToHeaderAndReset = {
   boundaryPointSpacing: 0.55,
 } as unknown as WindingBreakoutSolverInput
 
-const mcuToSpiFlash = {
-  regions: [
-    {
-      id: "U2 · MCU",
-      bounds: { minX: -6, maxX: -2, minY: -2.5, maxY: 2.5 },
-      edge: "right",
-    },
-    {
-      id: "U3 · SPI flash",
-      bounds: { minX: 2, maxX: 6, minY: -2.5, maxY: 2.5 },
-      edge: "left",
-    },
-  ],
-  connections: [
-    {
-      id: "FLASH_CS_N",
-      endpoints: [
-        { regionId: "U2 · MCU", position: { x: -2.6, y: -1.5 } },
-        { regionId: "U3 · SPI flash", position: { x: 2.6, y: -1.5 } },
-      ],
-    },
-    {
-      id: "SPI_MISO",
-      endpoints: [
-        { regionId: "U2 · MCU", position: { x: -2.6, y: -0.5 } },
-        { regionId: "U3 · SPI flash", position: { x: 2.6, y: -0.5 } },
-      ],
-    },
-    {
-      id: "SPI_SCLK",
-      endpoints: [
-        { regionId: "U2 · MCU", position: { x: -2.6, y: 1.5 } },
-        { regionId: "U3 · SPI flash", position: { x: 2.6, y: 1.5 } },
-      ],
-    },
-    {
-      id: "SPI_MOSI",
-      endpoints: [
-        { regionId: "U2 · MCU", position: { x: -2.6, y: 0.5 } },
-        { regionId: "U3 · SPI flash", position: { x: 2.6, y: 0.5 } },
-      ],
-    },
-  ],
-  buses: [
-    {
-      id: "spi",
-      connectionIds: ["SPI_SCLK", "SPI_MOSI", "SPI_MISO", "FLASH_CS_N"],
-      preferredLayer: "top",
-    },
-  ],
-  boundaryPointSpacing: 0.5,
-} satisfies WindingBreakoutSolverInput
-
-const socToLpddr4ByteLane = {
-  regions: [
-    {
-      id: "U4 · SoC",
-      bounds: { minX: -6, maxX: -2, minY: -3, maxY: 3 },
-      edge: "right",
-    },
-    {
-      id: "U5 · LPDDR4",
-      bounds: { minX: 2, maxX: 6, minY: -3, maxY: 3 },
-      edge: "left",
-    },
-  ],
-  connections: [
-    {
-      id: "DQ2",
-      endpoints: [
-        { regionId: "U4 · SoC", position: { x: -2.6, y: 0 } },
-        { regionId: "U5 · LPDDR4", position: { x: 2.6, y: 0 } },
-      ],
-    },
-    {
-      type: "differential",
-      connections: [
-        {
-          id: "DQS0_P",
-          endpoints: [
-            { regionId: "U4 · SoC", position: { x: -2.6, y: 1 } },
-            { regionId: "U5 · LPDDR4", position: { x: 2.6, y: 1 } },
-          ],
-        },
-        {
-          id: "DQS0_N",
-          endpoints: [
-            { regionId: "U4 · SoC", position: { x: -2.6, y: 1.8 } },
-            { regionId: "U5 · LPDDR4", position: { x: 2.6, y: 1.8 } },
-          ],
-        },
-      ],
-    },
-    {
-      id: "DQ0",
-      endpoints: [
-        { regionId: "U4 · SoC", position: { x: -2.6, y: -0.8 } },
-        { regionId: "U5 · LPDDR4", position: { x: 2.6, y: -0.8 } },
-      ],
-    },
-    {
-      id: "DQ1",
-      endpoints: [
-        { regionId: "U4 · SoC", position: { x: -2.6, y: -1.6 } },
-        { regionId: "U5 · LPDDR4", position: { x: 2.6, y: -1.6 } },
-      ],
-    },
-  ],
-  buses: [
-    {
-      id: "byte-0-data",
-      connectionIds: ["DQ0", "DQ1", "DQ2"],
-      preferredLayer: "inner1",
-    },
-    {
-      id: "byte-0-strobe",
-      connectionIds: ["DQS0_P", "DQS0_N"],
-      preferredLayer: "inner2",
-    },
-  ],
-  boundaryPointSpacing: 0.75,
-} satisfies WindingBreakoutSolverInput
-
 test("QFP16 controller breaks out toward a header and reset resistor", async () => {
   await expectSolverExampleToMatchSvgSnapshot({
     input: qfp16ToHeaderAndReset,
@@ -206,20 +84,22 @@ test("QFP16 controller breaks out toward a header and reset resistor", async () 
   })
 })
 
-test("MCU SPI bus breaks out toward a flash package", async () => {
+test("AM62L processor breaks out an LPDDR4 byte lane", async () => {
   await expectSolverExampleToMatchSvgSnapshot({
-    input: mcuToSpiFlash,
-    title: "MCU ↔ SPI flash · fixed top-layer bus",
+    input: ddrByte0Example,
+    title: "AM62L processor ↔ LPDDR4 DRAM · byte lane 0 · 11 signals",
+    includeTextLabels: false,
     testPath: import.meta.path,
-    snapshotName: "mcu-to-spi-flash",
+    snapshotName: "am62l-lpddr4-byte0",
   })
 })
 
-test("SoC LPDDR4 byte lane keeps the strobe pair adjacent", async () => {
+test("AM62L processor breaks out the complete LPDDR4 link", async () => {
   await expectSolverExampleToMatchSvgSnapshot({
-    input: socToLpddr4ByteLane,
-    title: "SoC ↔ LPDDR4 byte-lane excerpt · data + differential strobe",
+    input: fullDdrExample,
+    title: "AM62L processor ↔ LPDDR4 DRAM · complete 33-signal link",
+    includeTextLabels: false,
     testPath: import.meta.path,
-    snapshotName: "soc-to-lpddr4-byte-lane",
+    snapshotName: "am62l-lpddr4-full-link",
   })
 })
