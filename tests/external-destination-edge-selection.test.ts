@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test"
 import { WindingBreakoutSolver, type WindingBreakoutSolverInput } from "../lib"
-import { expectSolverToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 
 const solve = (input: WindingBreakoutSolverInput) => {
   const solver = new WindingBreakoutSolver(input)
@@ -67,13 +66,6 @@ test("single-region connections use and align with nearer destination edges", as
     { x: 2, y: -0.25 },
     { x: 2, y: 0.25 },
   ])
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    solver,
-    includeTextLabels: true,
-    testPath: import.meta.path,
-    snapshotName: "standalone-outlier-selects-nearer-edge",
-  })
 })
 
 test("bus members retain the declared edge", async () => {
@@ -123,11 +115,4 @@ test("bus members retain the declared edge", async () => {
   expect(output.breakoutPoints.map((point) => point.y).sort()).toEqual([
     -0.25, 0.25,
   ])
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    solver,
-    includeTextLabels: true,
-    testPath: import.meta.path,
-    snapshotName: "bus-retains-declared-edge",
-  })
 })

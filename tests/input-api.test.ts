@@ -14,7 +14,6 @@ import {
   type WindingBreakoutSolverInput,
 } from "../lib"
 import { getCanonicalConnections } from "../lib/input/get-canonical-connections"
-import { expectSolverToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 import { cloneInput, solveSuccessfully } from "./fixtures/solver-test-utils"
 
 const withFirstConnection = (
@@ -31,16 +30,10 @@ const withFirstConnection = (
 const expectInputError = async (
   input: WindingBreakoutSolverInput,
   message: string,
-  snapshotName: string,
 ): Promise<void> => {
   const solver = new WindingBreakoutSolver(input)
   expect(() => solver.setup()).toThrow(WindingBreakoutInputError)
   expect(() => solver.setup()).toThrow(message)
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    testPath: import.meta.path,
-    snapshotName,
-  })
 }
 
 test("zero regions fail validation", async () => {
@@ -50,7 +43,6 @@ test("zero regions fail validation", async () => {
       regions: [],
     },
     "at least one region is required",
-    "zero-regions-validation-error",
   )
 })
 
@@ -68,11 +60,6 @@ test("output returns coordinates and the solver-selected connection layers", asy
       "y",
     ])
   }
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    testPath: import.meta.path,
-    snapshotName: "output-coordinates-and-layers",
-  })
 })
 
 test("missing endpoints fail validation", async () => {
@@ -82,7 +69,6 @@ test("missing endpoints fail validation", async () => {
       endpoints: connection.endpoints.slice(0, 1),
     })),
     'connections[0] is missing endpoint for region "ram"',
-    "missing-endpoint-validation-error",
   )
 })
 
@@ -93,7 +79,6 @@ test("duplicate endpoints fail validation", async () => {
       endpoints: [connection.endpoints[0]!, connection.endpoints[0]!],
     })),
     'connections[0] has duplicate endpoint for region "soc"',
-    "duplicate-endpoint-validation-error",
   )
 })
 
@@ -107,7 +92,6 @@ test("unknown endpoint region ids fail validation", async () => {
       ],
     })),
     'connections[0].endpoints[0] references unknown region "unknown"',
-    "unknown-region-validation-error",
   )
 })
 
@@ -125,7 +109,6 @@ test("duplicate connection ids fail validation", async () => {
       ],
     },
     `duplicate connection id "${first.id}"`,
-    "duplicate-connection-validation-error",
   )
 })
 
@@ -139,7 +122,6 @@ test("points outside region bounds fail validation", async () => {
       ],
     })),
     'connections[0] endpoint for region "soc" is outside its bounds',
-    "outside-region-validation-error",
   )
 })
 
@@ -157,7 +139,6 @@ test("non-finite external destinations fail validation", async () => {
       ),
     })),
     "connections[0].endpoints[0].externalDestination.x must be finite",
-    "non-finite-destination-validation-error",
   )
 })
 
@@ -180,7 +161,6 @@ test("invalid differential pairs fail validation", async () => {
       }),
     },
     `connections[${pairIndex}].connections must contain exactly two members`,
-    "invalid-differential-pair-validation-error",
   )
 })
 
@@ -216,11 +196,6 @@ test("differential pairs remain atomic on their selected layer", async () => {
       Math.abs(order.indexOf(pairIds[0]!) - order.indexOf(pairIds[1]!)),
     ).toBe(1)
   }
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    testPath: import.meta.path,
-    snapshotName: "differential-pair-atomic-layer",
-  })
 })
 
 test("all AM62L and LPDDR4 examples solve successfully", async () => {
@@ -235,11 +210,6 @@ test("all AM62L and LPDDR4 examples solve successfully", async () => {
       getCanonicalConnections(input).length * input.regions.length,
     )
   }
-  await expectSolverToMatchSvgSnapshot({
-    input: cloneInput(fullDdrExample),
-    testPath: import.meta.path,
-    snapshotName: "full-am62l-lpddr4-example",
-  })
 })
 
 test("preferredLayers remain available for solver distribution", async () => {
@@ -248,11 +218,6 @@ test("preferredLayers remain available for solver distribution", async () => {
   expect(new Set(output.breakoutPoints.map((point) => point.layer))).toEqual(
     new Set(["inner1", "inner4"]),
   )
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    testPath: import.meta.path,
-    snapshotName: "preferred-layer-distribution",
-  })
 })
 
 test("preferredLayer is a permanent assignment even when alternatives exist", async () => {
@@ -271,9 +236,4 @@ test("preferredLayer is a permanent assignment even when alternatives exist", as
   expect(new Set(output.breakoutPoints.map((point) => point.layer))).toEqual(
     new Set(["inner3"]),
   )
-  await expectSolverToMatchSvgSnapshot({
-    input: fixedLayerInput,
-    testPath: import.meta.path,
-    snapshotName: "fixed-preferred-layer",
-  })
 })

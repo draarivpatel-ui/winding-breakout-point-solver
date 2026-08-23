@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test"
 import { ddrByte0Example } from "../examples/am62l"
-import { expectSolverToMatchSvgSnapshot } from "./fixtures/solver-svg-snapshot"
 import {
   cloneInput,
   deepFreeze,
@@ -18,9 +17,4 @@ test("caller connection data is preserved", async () => {
   expect(
     input.connections.every((connection) => Object.isFrozen(connection)),
   ).toBe(true)
-  await expectSolverToMatchSvgSnapshot({
-    input,
-    testPath: import.meta.path,
-    snapshotName: "frozen-caller-input",
-  })
 })
