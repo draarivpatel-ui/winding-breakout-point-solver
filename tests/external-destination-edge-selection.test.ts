@@ -82,7 +82,7 @@ test("bus members retain the declared edge", () => {
           {
             regionId: "controller",
             position: { x: 0, y: -0.5 },
-            externalDestination: { x: -5, y: -1 },
+            externalDestination: { x: -5, y: 1 },
           },
         ],
       },

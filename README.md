@@ -73,7 +73,9 @@ For a one-region solve, buses, differential pairs, and dense destination cohorts
 retain the declared edge. Destination-aware edge selection is intentionally
 conservative: it only moves a single standalone outlier when at least two other
 connections remain on the declared edge, avoiding fragmentation of established
-fanouts.
+fanouts. If every connection retains the declared edge, gate placement follows
+the legacy path exactly; downstream targets only center edge groups when an
+outlier actually causes the solve to use more than one edge.
 
 Region centers, the layer list, winding orders, and layer stagger offsets are
 derived by the solver and are not accepted as input.

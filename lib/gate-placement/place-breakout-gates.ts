@@ -206,13 +206,13 @@ export const placeBreakoutGates = ({
     buses,
     atomicGroups,
   })
+  const selectedEdgesForSingleRegion =
+    regions.length === 1
+      ? new Set(selectedEdgeByRegionConnection.get(regions[0]!.id)?.values())
+      : undefined
   const useDestinationAwarePlacement =
-    regions.length === 1 &&
-    connections.some((connection) =>
-      connection.endpoints.some(
-        (endpoint) => endpoint.externalDestination !== undefined,
-      ),
-    )
+    selectedEdgesForSingleRegion !== undefined &&
+    selectedEdgesForSingleRegion.size > 1
   if (useDestinationAwarePlacement) {
     const region = regions[0]!
     const selectedRegionEdges = selectedEdgeByRegionConnection.get(region.id)!
