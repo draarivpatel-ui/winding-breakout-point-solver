@@ -30,6 +30,7 @@ type ConnectionInput = {
   endpoints: readonly {
     regionId: string
     position: Point
+    externalDestination?: Point
   }[]
 }
 
@@ -61,7 +62,14 @@ Every input field carries caller-owned information:
   position;
 - endpoint positions define the winding, while buses and differential-pair
   membership are routing constraints; and
+- optional external destinations let a one-region solve choose a nearer edge
+  and center that edge's gates toward their downstream routing targets; and
 - `boundaryPointSpacing` is the requested physical spacing.
+
+Without external destinations, every connection remains on the region's
+declared edge. Multi-region solves also retain their declared coordinated edges.
+For a one-region solve, bus members and differential-pair members select an edge
+as a group so destination-aware placement does not split those constraints.
 
 Region centers, the layer list, winding orders, and layer stagger offsets are
 derived by the solver and are not accepted as input.
@@ -193,8 +201,8 @@ calculated breakout points. Its layer selector is derived from bus preferences.
 Start it with `bun run start`, then open **Region Count Breakdown** for
 interactive one-, two-, and three-region examples. Each example exposes the
 two pipeline stages independently in the pipeline debugger. The one-region
-example also renders caller-owned destination points outside the region, making
-the full endpoint-to-breakout-to-destination continuation visible without
+example includes and renders caller-owned destination points outside the region,
+making the full endpoint-to-breakout-to-destination continuation visible without
 turning those destinations into fake regions or breakout points.
 
 ## Deployment

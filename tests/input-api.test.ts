@@ -5,16 +5,16 @@ import {
   ddrByte1Example,
   fullDdrExample,
 } from "../examples/am62l"
+import { oneRegionExample } from "../examples/region-count"
 import {
-  WindingBreakoutInputError,
-  WindingBreakoutSolver,
   type ConnectionInput,
   type DifferentialPairInput,
+  WindingBreakoutInputError,
+  WindingBreakoutSolver,
   type WindingBreakoutSolverInput,
 } from "../lib"
 import { getCanonicalConnections } from "../lib/input/get-canonical-connections"
 import { cloneInput, solveSuccessfully } from "./fixtures/solver-test-utils"
-import { oneRegionExample } from "../examples/region-count"
 
 const withFirstConnection = (
   update: (connection: ConnectionInput) => ConnectionInput,
@@ -122,6 +122,23 @@ test("points outside region bounds fail validation", () => {
       ],
     })),
     'connections[0] endpoint for region "soc" is outside its bounds',
+  )
+})
+
+test("non-finite external destinations fail validation", () => {
+  expectInputError(
+    withFirstConnection((connection) => ({
+      ...connection,
+      endpoints: connection.endpoints.map((endpoint, index) =>
+        index === 0
+          ? {
+              ...endpoint,
+              externalDestination: { x: Number.NaN, y: 0 },
+            }
+          : endpoint,
+      ),
+    })),
+    "connections[0].endpoints[0].externalDestination.x must be finite",
   )
 })
 
