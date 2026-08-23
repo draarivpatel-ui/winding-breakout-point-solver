@@ -113,9 +113,11 @@ const selectGroupEdge = ({
 
 /**
  * Choose boundary edges for every region/connection pair. Multi-region solves
- * retain their declared coordinated edges. A single-region solve may move a
- * complete bus, differential pair, or standalone connection toward its
- * external destination without splitting routing constraints.
+ * retain their declared coordinated edges. A single-region solve may move one
+ * standalone outlier toward its external destination when at least two other
+ * connections remain on the declared edge. Buses, differential pairs, and
+ * dense cohorts retain the declared edge so destination hints cannot fragment
+ * an established fanout.
  */
 export const selectBreakoutEdges = ({
   regions,
@@ -143,6 +145,10 @@ export const selectBreakoutEdges = ({
   const connectionById = new Map(
     connections.map((connection) => [connection.id, connection] as const),
   )
+  const constrainedConnectionIds = new Set([
+    ...buses.flatMap((bus) => bus.connectionIds),
+    ...atomicGroups.flat(),
+  ])
   const selectedRegionEdges = selectedEdges.get(region.id)!
   for (const connectionIds of getEdgeSelectionGroups({
     connections,
@@ -152,9 +158,31 @@ export const selectBreakoutEdges = ({
     const groupedConnections = connectionIds.map(
       (connectionId) => connectionById.get(connectionId)!,
     )
-    const edge = selectGroupEdge({ region, connections: groupedConnections })
+    const edge = connectionIds.some((connectionId) =>
+      constrainedConnectionIds.has(connectionId),
+    )
+      ? region.edge
+      : selectGroupEdge({ region, connections: groupedConnections })
     for (const connectionId of connectionIds) {
       selectedRegionEdges.set(connectionId, edge)
+    }
+  }
+
+  const connectionCountByEdge = new Map<BreakoutEdge, number>()
+  for (const edge of selectedRegionEdges.values()) {
+    connectionCountByEdge.set(edge, (connectionCountByEdge.get(edge) ?? 0) + 1)
+  }
+
+  if ((connectionCountByEdge.get(region.edge) ?? 0) < 2) {
+    for (const connection of connections) {
+      selectedRegionEdges.set(connection.id, region.edge)
+    }
+    return selectedEdges
+  }
+
+  for (const [connectionId, edge] of selectedRegionEdges) {
+    if (edge !== region.edge && (connectionCountByEdge.get(edge) ?? 0) > 1) {
+      selectedRegionEdges.set(connectionId, region.edge)
     }
   }
   return selectedEdges

@@ -66,7 +66,7 @@ test("single-region connections use and align with nearer destination edges", ()
   ])
 })
 
-test("bus members select one destination edge together", () => {
+test("bus members retain the declared edge", () => {
   const output = solve({
     regions: [
       {
@@ -107,7 +107,7 @@ test("bus members select one destination edge together", () => {
     boundaryPointSpacing: 0.5,
   })
 
-  expect(output.breakoutPoints.every((point) => point.x === -2)).toBe(true)
+  expect(output.breakoutPoints.every((point) => point.x === 2)).toBe(true)
   expect(output.breakoutPoints.map((point) => point.y).sort()).toEqual([
     -0.25, 0.25,
   ])

@@ -62,14 +62,18 @@ Every input field carries caller-owned information:
   position;
 - endpoint positions define the winding, while buses and differential-pair
   membership are routing constraints; and
-- optional external destinations let a one-region solve choose a nearer edge
-  and center that edge's gates toward their downstream routing targets; and
+- optional external destinations let a one-region solve move a standalone
+  outlier to a nearer edge and center its gate toward the downstream routing
+  target; and
 - `boundaryPointSpacing` is the requested physical spacing.
 
 Without external destinations, every connection remains on the region's
 declared edge. Multi-region solves also retain their declared coordinated edges.
-For a one-region solve, bus members and differential-pair members select an edge
-as a group so destination-aware placement does not split those constraints.
+For a one-region solve, buses, differential pairs, and dense destination cohorts
+retain the declared edge. Destination-aware edge selection is intentionally
+conservative: it only moves a single standalone outlier when at least two other
+connections remain on the declared edge, avoiding fragmentation of established
+fanouts.
 
 Region centers, the layer list, winding orders, and layer stagger offsets are
 derived by the solver and are not accepted as input.
