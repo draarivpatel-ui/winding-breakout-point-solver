@@ -102,7 +102,7 @@ const createExampleHeaderSvg = ({
   const statusColor = solved ? "#15803d" : "#b91c1c"
   const intersectionLabel = `${intersectionCount} same-layer guide intersection${intersectionCount === 1 ? "" : "s"}`
   const rightColumnX = PANEL_WIDTH + 32
-  return `<svg width="${COMBINED_WIDTH}" height="${EXAMPLE_HEADER_HEIGHT}" viewBox="0 0 ${COMBINED_WIDTH} ${EXAMPLE_HEADER_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#ffffff"/><text x="16" y="27" font-family="sans-serif" font-size="20" font-weight="700" fill="#0f172a">${escapeXml(title)}</text><text x="16" y="52" font-family="sans-serif" font-size="14"><tspan font-weight="700" fill="${statusColor}">${status}</tspan><tspan fill="#475569"> · ${escapeXml(intersectionLabel)}</tspan></text><text x="16" y="76" font-family="sans-serif" font-size="12" fill="#475569">Rectangles = breakout regions · circles = component pads · gate labels include the selected layer</text><text x="16" y="95" font-family="sans-serif" font-size="12" fill="#64748b">Dashed paths are straight-line guides, not copper traces · outer dots marked “target” are destinations</text><text x="16" y="130" font-family="sans-serif" font-size="16" font-weight="700" fill="#0f172a">CONNECTION / NET COLORS</text><text x="16" y="153" font-family="sans-serif" font-size="12" fill="#475569">Each color follows one connection through its boundary gates</text><text x="${rightColumnX}" y="130" font-family="sans-serif" font-size="16" font-weight="700" fill="#0f172a">PCB LAYER COLORS</text><text x="${rightColumnX}" y="153" font-family="sans-serif" font-size="12" fill="#475569">${createLayerLegend(layerNames)}</text><text x="${rightColumnX}" y="171" font-family="sans-serif" font-size="11" fill="#64748b">Gray = geometry shared by multiple layers</text></svg>`
+  return `<svg width="${COMBINED_WIDTH}" height="${EXAMPLE_HEADER_HEIGHT}" viewBox="0 0 ${COMBINED_WIDTH} ${EXAMPLE_HEADER_HEIGHT}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#ffffff"/><text x="16" y="27" font-family="sans-serif" font-size="20" font-weight="700" fill="#0f172a">${escapeXml(title)}</text><text x="16" y="52" font-family="sans-serif" font-size="14"><tspan font-weight="700" fill="${statusColor}">${status}</tspan><tspan fill="#475569"> · ${escapeXml(intersectionLabel)}</tspan></text><text x="16" y="76" font-family="sans-serif" font-size="12" fill="#475569">Rectangles = breakout regions · circles = component pads · filled boundary points = solver-selected gates</text><text x="16" y="95" font-family="sans-serif" font-size="12" fill="#64748b">Dashed paths are straight-line guides, not copper traces · outer dots marked “target” are destinations when present</text><text x="16" y="130" font-family="sans-serif" font-size="16" font-weight="700" fill="#0f172a">CONNECTION / NET COLORS</text><text x="16" y="153" font-family="sans-serif" font-size="12" fill="#475569">Each color follows one connection through its boundary gates</text><text x="${rightColumnX}" y="130" font-family="sans-serif" font-size="16" font-weight="700" fill="#0f172a">PCB LAYER COLORS</text><text x="${rightColumnX}" y="153" font-family="sans-serif" font-size="12" fill="#475569">${createLayerLegend(layerNames)}</text><text x="${rightColumnX}" y="171" font-family="sans-serif" font-size="11" fill="#64748b">Gray = geometry shared by multiple layers</text></svg>`
 }
 
 const createLayerLegend = (layerNames: readonly string[]): string =>
@@ -145,11 +145,14 @@ const recolorGraphicsByLayer = (
   }
 }
 
-const renderGraphicsSvg = (graphics: GraphicsObject): string =>
+const renderGraphicsSvg = (
+  graphics: GraphicsObject,
+  includeTextLabels: boolean,
+): string =>
   ensureReadableGuideStrokes(
     getSvgFromGraphicsObject(graphics, {
       backgroundColor: "#ffffff",
-      includeTextLabels: true,
+      includeTextLabels,
       svgWidth: PANEL_WIDTH,
       svgHeight: PANEL_BODY_HEIGHT,
     }),
@@ -328,11 +331,13 @@ export const expectSolverExampleToMatchSvgSnapshot = async ({
   testPath,
   snapshotName,
   title,
+  includeTextLabels = true,
 }: {
   input: WindingBreakoutSolverInput
   testPath: string
   snapshotName: string
   title: string
+  includeTextLabels?: boolean
 }): Promise<void> => {
   const solver = new WindingBreakoutSolver(input)
   solver.solve()
@@ -348,8 +353,11 @@ export const expectSolverExampleToMatchSvgSnapshot = async ({
   }
   const panels = stackSvgsHorizontally(
     [
-      renderGraphicsSvg(graphics),
-      renderGraphicsSvg(recolorGraphicsByLayer(graphics, input)),
+      renderGraphicsSvg(graphics, includeTextLabels),
+      renderGraphicsSvg(
+        recolorGraphicsByLayer(graphics, input),
+        includeTextLabels,
+      ),
     ],
     {
       gap: 16,
