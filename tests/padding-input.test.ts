@@ -3,7 +3,7 @@ import { oneMillimeterPaddingInput } from "../examples/padding/one-millimeter-pa
 import { WindingBreakoutSolver } from "../lib"
 import { getCanonicalConnections } from "../lib/input/get-canonical-connections"
 
-test("1mm padding input includes every AM62L/LPDDR4 DDR connection", () => {
+test("1mm padding input includes every AM62L/LPDDR4 DDR connection", async () => {
   expect(getCanonicalConnections(oneMillimeterPaddingInput)).toHaveLength(33)
   const [soc, ram] = oneMillimeterPaddingInput.regions
   expect(soc!.bounds.maxX - soc!.bounds.minX).toBeCloseTo(13.25616)

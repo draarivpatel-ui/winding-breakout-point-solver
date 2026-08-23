@@ -5,7 +5,7 @@ import {
   WindingBreakoutSolver,
 } from "../lib"
 
-test("getOutput is unavailable until a successful solve", () => {
+test("getOutput is unavailable until a successful solve", async () => {
   const solver = new WindingBreakoutSolver(ddrByte0Example)
 
   expect(() => solver.getOutput()).toThrow(

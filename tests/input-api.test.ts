@@ -5,16 +5,16 @@ import {
   ddrByte1Example,
   fullDdrExample,
 } from "../examples/am62l"
+import { oneRegionExample } from "../examples/region-count"
 import {
-  WindingBreakoutInputError,
-  WindingBreakoutSolver,
   type ConnectionInput,
   type DifferentialPairInput,
+  WindingBreakoutInputError,
+  WindingBreakoutSolver,
   type WindingBreakoutSolverInput,
 } from "../lib"
 import { getCanonicalConnections } from "../lib/input/get-canonical-connections"
 import { cloneInput, solveSuccessfully } from "./fixtures/solver-test-utils"
-import { oneRegionExample } from "../examples/region-count"
 
 const withFirstConnection = (
   update: (connection: ConnectionInput) => ConnectionInput,
@@ -27,17 +27,17 @@ const withFirstConnection = (
   }
 }
 
-const expectInputError = (
+const expectInputError = async (
   input: WindingBreakoutSolverInput,
   message: string,
-): void => {
+): Promise<void> => {
   const solver = new WindingBreakoutSolver(input)
   expect(() => solver.setup()).toThrow(WindingBreakoutInputError)
   expect(() => solver.setup()).toThrow(message)
 }
 
-test("zero regions fail validation", () => {
-  expectInputError(
+test("zero regions fail validation", async () => {
+  await expectInputError(
     {
       ...cloneInput(oneRegionExample),
       regions: [],
@@ -46,7 +46,7 @@ test("zero regions fail validation", () => {
   )
 })
 
-test("output returns coordinates and the solver-selected connection layers", () => {
+test("output returns coordinates and the solver-selected connection layers", async () => {
   const input = cloneInput(ddrByte0Example)
   const output = solveSuccessfully(input)
 
@@ -62,8 +62,8 @@ test("output returns coordinates and the solver-selected connection layers", () 
   }
 })
 
-test("missing endpoints fail validation", () => {
-  expectInputError(
+test("missing endpoints fail validation", async () => {
+  await expectInputError(
     withFirstConnection((connection) => ({
       ...connection,
       endpoints: connection.endpoints.slice(0, 1),
@@ -72,8 +72,8 @@ test("missing endpoints fail validation", () => {
   )
 })
 
-test("duplicate endpoints fail validation", () => {
-  expectInputError(
+test("duplicate endpoints fail validation", async () => {
+  await expectInputError(
     withFirstConnection((connection) => ({
       ...connection,
       endpoints: [connection.endpoints[0]!, connection.endpoints[0]!],
@@ -82,8 +82,8 @@ test("duplicate endpoints fail validation", () => {
   )
 })
 
-test("unknown endpoint region ids fail validation", () => {
-  expectInputError(
+test("unknown endpoint region ids fail validation", async () => {
+  await expectInputError(
     withFirstConnection((connection) => ({
       ...connection,
       endpoints: [
@@ -95,11 +95,11 @@ test("unknown endpoint region ids fail validation", () => {
   )
 })
 
-test("duplicate connection ids fail validation", () => {
+test("duplicate connection ids fail validation", async () => {
   const input = cloneInput(ddrByte0Example)
   const first = input.connections[0] as ConnectionInput
   const second = input.connections[1] as ConnectionInput
-  expectInputError(
+  await expectInputError(
     {
       ...input,
       connections: [
@@ -112,8 +112,8 @@ test("duplicate connection ids fail validation", () => {
   )
 })
 
-test("points outside region bounds fail validation", () => {
-  expectInputError(
+test("points outside region bounds fail validation", async () => {
+  await expectInputError(
     withFirstConnection((connection) => ({
       ...connection,
       endpoints: [
@@ -125,7 +125,7 @@ test("points outside region bounds fail validation", () => {
   )
 })
 
-test("invalid differential pairs fail validation", () => {
+test("invalid differential pairs fail validation", async () => {
   const input = cloneInput(ddrByte0Example)
   const pairIndex = input.connections.findIndex(
     (connection) => "type" in connection && connection.type === "differential",
@@ -135,7 +135,7 @@ test("invalid differential pairs fail validation", () => {
     ...pair,
     connections: [pair.connections[0]],
   } as unknown as DifferentialPairInput
-  expectInputError(
+  await expectInputError(
     {
       ...input,
       connections: input.connections.map((connection, index) => {
@@ -147,7 +147,7 @@ test("invalid differential pairs fail validation", () => {
   )
 })
 
-test("differential pairs remain atomic on their selected layer", () => {
+test("differential pairs remain atomic on their selected layer", async () => {
   const input = cloneInput(ddrByte0Example)
   const pair = input.connections.find(
     (connection): connection is DifferentialPairInput =>
@@ -181,7 +181,7 @@ test("differential pairs remain atomic on their selected layer", () => {
   }
 })
 
-test("all AM62L and LPDDR4 examples solve successfully", () => {
+test("all AM62L and LPDDR4 examples solve successfully", async () => {
   for (const input of [
     ddrByte0Example,
     ddrByte1Example,
@@ -195,7 +195,7 @@ test("all AM62L and LPDDR4 examples solve successfully", () => {
   }
 })
 
-test("preferredLayers remain available for solver distribution", () => {
+test("preferredLayers remain available for solver distribution", async () => {
   const input = cloneInput(ddrByte0Example)
   const output = solveSuccessfully(input)
   expect(new Set(output.breakoutPoints.map((point) => point.layer))).toEqual(
@@ -203,9 +203,9 @@ test("preferredLayers remain available for solver distribution", () => {
   )
 })
 
-test("preferredLayer is a permanent assignment even when alternatives exist", () => {
+test("preferredLayer is a permanent assignment even when alternatives exist", async () => {
   const input = cloneInput(ddrByte0Example)
-  const output = solveSuccessfully({
+  const fixedLayerInput = {
     ...input,
     buses: [
       {
@@ -214,7 +214,8 @@ test("preferredLayer is a permanent assignment even when alternatives exist", ()
         preferredLayers: ["inner1", "inner4"],
       },
     ],
-  })
+  }
+  const output = solveSuccessfully(fixedLayerInput)
   expect(new Set(output.breakoutPoints.map((point) => point.layer))).toEqual(
     new Set(["inner3"]),
   )

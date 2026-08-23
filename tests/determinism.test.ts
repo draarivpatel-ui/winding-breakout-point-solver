@@ -18,7 +18,7 @@ const reverseObjectProperties = (value: unknown): unknown => {
   )
 }
 
-test("reordering object properties does not affect output", () => {
+test("reordering object properties does not affect output", async () => {
   const first = solveSuccessfully(cloneInput(ddrByte0Example))
   const reordered = reverseObjectProperties(
     cloneInput(ddrByte0Example),
@@ -42,13 +42,14 @@ const reverseCanonicalConnections = (
     }
   })
 
-test("reordering canonical connections does not change output", () => {
+test("reordering canonical connections does not change output", async () => {
   const input = cloneInput(threeRegionExample)
   const first = solveSuccessfully(input)
-  const reordered = solveSuccessfully({
+  const reorderedInput = {
     ...input,
     connections: reverseCanonicalConnections(input.connections),
-  })
+  }
+  const reordered = solveSuccessfully(reorderedInput)
 
   expect(JSON.stringify(reordered)).toBe(JSON.stringify(first))
 })
@@ -75,13 +76,14 @@ const reverseConnectionEndpoints = (
     }
   })
 
-test("endpoint region ids make endpoint array order irrelevant", () => {
+test("endpoint region ids make endpoint array order irrelevant", async () => {
   const input = cloneInput(threeRegionExample)
   const first = solveSuccessfully(input)
-  const reordered = solveSuccessfully({
+  const reorderedInput = {
     ...input,
     connections: reverseConnectionEndpoints(input.connections),
-  })
+  }
+  const reordered = solveSuccessfully(reorderedInput)
 
   expect(JSON.stringify(reordered)).toBe(JSON.stringify(first))
 })

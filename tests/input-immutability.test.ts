@@ -6,7 +6,7 @@ import {
   solveSuccessfully,
 } from "./fixtures/solver-test-utils"
 
-test("caller connection data is preserved", () => {
+test("caller connection data is preserved", async () => {
   const input = deepFreeze(cloneInput(ddrByte0Example))
   const before = JSON.stringify(input)
 
