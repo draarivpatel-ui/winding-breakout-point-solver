@@ -75,13 +75,31 @@ const input: WindingBreakoutSolverInput = {
   boundaryPointSpacing: 1,
 }
 
-test("captures buses overfilling top while bottom capacity is available", async () => {
+test("buses share layer capacity while preserving fixed layers and pairs", async () => {
   const solver = new WindingBreakoutSolver(input)
+  solver.solve()
 
-  expect(() => solver.solve()).toThrow(
-    "declared breakout edges need 5.50mm but expose only 3.50mm",
-  )
-  expect(solver.solved).toBe(false)
+  expect(solver.solved).toBe(true)
+  const points = solver.getOutput().breakoutPoints
+  const topPoints = points.filter((point) => point.layer === "top")
+  const bottomPoints = points.filter((point) => point.layer === "bottom")
+
+  expect(topPoints.map((point) => point.connectionId)).toEqual([
+    "CMD",
+    "DATA",
+    "RESET_N",
+    "IRQ",
+  ])
+  expect(bottomPoints.map((point) => point.connectionId)).toEqual([
+    "CLK_P",
+    "CLK_N",
+    "DQS_P",
+    "DQS_N",
+  ])
+  expect(bottomPoints[1]!.y - bottomPoints[0]!.y).toBeCloseTo(1)
+  expect(bottomPoints[3]!.y - bottomPoints[2]!.y).toBeCloseTo(1)
+  expect(Math.min(...points.map((point) => point.y))).toBeGreaterThanOrEqual(0)
+  expect(Math.max(...points.map((point) => point.y))).toBeLessThanOrEqual(3.5)
   await expect(
     getSvgFromGraphicsObject(
       solver.finalVisualize() ?? solver.initialVisualize(),
