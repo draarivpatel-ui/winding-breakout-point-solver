@@ -53,7 +53,10 @@ export const assignConnectionLayers = ({
   )) {
     if (candidates.length !== 1) continue
     const layer = candidates[0]!
-    connectionCountByLayer.set(layer, (connectionCountByLayer.get(layer) ?? 0) + 1)
+    connectionCountByLayer.set(
+      layer,
+      (connectionCountByLayer.get(layer) ?? 0) + 1,
+    )
   }
 
   for (const bus of validated.buses) {
