@@ -1,5 +1,11 @@
 import type { ValidatedWindingInput } from "../input/validate-winding-breakout-input"
-import { getBusLayerCandidates } from "../input/get-bus-layer-candidates"
+import {
+  getBusLayerCandidates,
+  getLayerCandidatesByConnection,
+} from "../input/get-bus-layer-candidates"
+import type { BreakoutPoint } from "../types"
+
+type BreakoutLayer = BreakoutPoint["layer"]
 
 export interface ConnectionLayerAssignment {
   readonly layerByConnection: Readonly<Record<string, string>>
@@ -31,7 +37,7 @@ const getAtomicUnits = (
   return units
 }
 
-/** Assign fixed buses directly and spread flexible buses over their candidates. */
+/** Assign fixed buses directly and spread flexible buses over shared layer capacity. */
 export const assignConnectionLayers = ({
   validated,
   referenceOrder,
@@ -40,6 +46,15 @@ export const assignConnectionLayers = ({
   referenceOrder: readonly string[]
 }): ConnectionLayerAssignment => {
   const assignments = new Map<string, string>()
+  const connectionCountByLayer = new Map<BreakoutLayer, number>()
+  // Reserve exclusive layers before placing flexible atomic units.
+  for (const candidates of Object.values(
+    getLayerCandidatesByConnection(validated),
+  )) {
+    if (candidates.length !== 1) continue
+    const layer = candidates[0]!
+    connectionCountByLayer.set(layer, (connectionCountByLayer.get(layer) ?? 0) + 1)
+  }
 
   for (const bus of validated.buses) {
     const busConnectionSet = new Set(bus.connectionIds)
@@ -54,9 +69,23 @@ export const assignConnectionLayers = ({
 
     // NOTE: preferredLayer is a permanent assignment despite its legacy name;
     // getBusLayerCandidates therefore returns exactly one layer for that case.
-    for (const [unitIndex, unit] of units.entries()) {
-      const layer = candidates[unitIndex % candidates.length]!
+    for (const unit of units) {
+      const layer = candidates.reduce((leastLoadedLayer, candidateLayer) => {
+        if (
+          (connectionCountByLayer.get(candidateLayer) ?? 0) <
+          (connectionCountByLayer.get(leastLoadedLayer) ?? 0)
+        ) {
+          return candidateLayer
+        }
+        return leastLoadedLayer
+      })
       for (const connectionId of unit) assignments.set(connectionId, layer)
+      if (candidates.length > 1) {
+        connectionCountByLayer.set(
+          layer,
+          (connectionCountByLayer.get(layer) ?? 0) + unit.length,
+        )
+      }
     }
   }
 
