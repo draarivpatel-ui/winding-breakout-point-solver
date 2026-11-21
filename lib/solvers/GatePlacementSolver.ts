@@ -46,6 +46,7 @@ export class GatePlacementSolver extends BaseSolver {
     const assignment = assignConnectionLayers({
       validated: params.validated,
       referenceOrder: params.ordering.referenceOrder,
+      boundaryPointSpacing: params.input.boundaryPointSpacing,
     })
     this.layerByConnection = assignment.layerByConnection
     this.placementBatches = params.validated.regions.flatMap((region) =>
