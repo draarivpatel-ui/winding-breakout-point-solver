@@ -1,5 +1,9 @@
+import { getGateAxisLayout } from "../gate-placement/get-gate-axis-layout"
 import type { ValidatedWindingInput } from "../input/validate-winding-breakout-input"
 import { getBusLayerCandidates } from "../input/get-bus-layer-candidates"
+import type { BreakoutPoint } from "../types"
+
+type BreakoutLayer = BreakoutPoint["layer"]
 
 export interface ConnectionLayerAssignment {
   readonly layerByConnection: Readonly<Record<string, string>>
@@ -35,9 +39,11 @@ const getAtomicUnits = (
 export const assignConnectionLayers = ({
   validated,
   referenceOrder,
+  boundaryPointSpacing,
 }: {
   validated: ValidatedWindingInput
   referenceOrder: readonly string[]
+  boundaryPointSpacing: number
 }): ConnectionLayerAssignment => {
   const assignments = new Map<string, string>()
 
@@ -62,6 +68,59 @@ export const assignConnectionLayers = ({
 
   for (const connectionId of referenceOrder) {
     if (!assignments.has(connectionId)) assignments.set(connectionId, "top")
+  }
+
+  const connectionCountByLayer = new Map<BreakoutLayer, number>()
+  for (const layer of assignments.values()) {
+    connectionCountByLayer.set(
+      layer,
+      (connectionCountByLayer.get(layer) ?? 0) + 1,
+    )
+  }
+  const { capacityPerLayer } = getGateAxisLayout({
+    regions: validated.regions,
+    spacing: boundaryPointSpacing,
+    layerCount: connectionCountByLayer.size,
+  })
+  const exceedsEdgeCapacity = [...connectionCountByLayer.values()].some(
+    (count) => count > capacityPerLayer,
+  )
+  if (exceedsEdgeCapacity) {
+    const capacityWithAllLayers = getGateAxisLayout({
+      regions: validated.regions,
+      spacing: boundaryPointSpacing,
+      layerCount: validated.layerNames.length,
+    }).capacityPerLayer
+    for (const bus of validated.buses.toReversed()) {
+      const candidates = getBusLayerCandidates(bus)
+      const units = getAtomicUnits(
+        bus.connectionIds,
+        validated.atomicConnectionGroups,
+      )
+      for (const unit of units) {
+        const layer = assignments.get(unit[0]!)!
+        if (connectionCountByLayer.get(layer)! <= capacityWithAllLayers) {
+          continue
+        }
+        const destinationLayer = candidates.find(
+          (candidate) =>
+            (connectionCountByLayer.get(candidate) ?? 0) + unit.length <=
+            capacityWithAllLayers,
+        )
+        if (!destinationLayer) continue
+        for (const connectionId of unit) {
+          assignments.set(connectionId, destinationLayer)
+        }
+        connectionCountByLayer.set(
+          layer,
+          connectionCountByLayer.get(layer)! - unit.length,
+        )
+        connectionCountByLayer.set(
+          destinationLayer,
+          (connectionCountByLayer.get(destinationLayer) ?? 0) + unit.length,
+        )
+      }
+    }
   }
 
   const layerByConnection = Object.fromEntries(

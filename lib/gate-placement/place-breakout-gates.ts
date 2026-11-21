@@ -4,24 +4,10 @@ import type {
   ValidatedRegion,
 } from "../input/validate-winding-breakout-input"
 import type { BreakoutPoint } from "../types"
-
-const GEOMETRY_EPSILON = 1e-9
+import { getGateAxisLayout } from "./get-gate-axis-layout"
 
 export interface GatePlacementResult {
   readonly breakoutPoints: readonly BreakoutPoint[]
-}
-
-const isVerticalEdge = (edge: ValidatedRegion["edge"]): boolean =>
-  edge === "left" || edge === "right"
-
-const getAxisMinimum = (region: ValidatedRegion, vertical: boolean): number => {
-  if (vertical) return region.bounds.minY
-  return region.bounds.minX
-}
-
-const getAxisMaximum = (region: ValidatedRegion, vertical: boolean): number => {
-  if (vertical) return region.bounds.maxY
-  return region.bounds.maxX
 }
 
 const getAxisPosition = (
@@ -92,17 +78,15 @@ const makeGateAxes = ({
   count: number
   layerOffsets: Readonly<Record<string, number>>
 }): { vertical: boolean; axes: number[] } => {
-  const vertical = regions.every((region) => isVerticalEdge(region.edge))
-  const minAxis = Math.max(
-    ...regions.map((region) => getAxisMinimum(region, vertical)),
-  )
-  const maxAxis = Math.min(
-    ...regions.map((region) => getAxisMaximum(region, vertical)),
-  )
+  const { vertical, minAxis, maxAxis, capacityPerLayer } = getGateAxisLayout({
+    regions,
+    spacing,
+    layerCount: Object.keys(layerOffsets).length,
+  })
   const minimumOffset = Math.min(...Object.values(layerOffsets))
   const maximumOffset = Math.max(...Object.values(layerOffsets))
   const span = spacing * Math.max(0, count - 1) + maximumOffset - minimumOffset
-  if (maxAxis - minAxis + GEOMETRY_EPSILON < span) {
+  if (count > capacityPerLayer) {
     throw new WindingBreakoutInfeasibleError(
       `WindingBreakoutSolver: declared breakout edges need ${span.toFixed(2)}mm but expose only ${(maxAxis - minAxis).toFixed(2)}mm`,
     )
