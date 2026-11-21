@@ -91,7 +91,7 @@ export const assignConnectionLayers = ({
       spacing: boundaryPointSpacing,
       layerCount: validated.layerNames.length,
     }).capacityPerLayer
-    for (const bus of validated.buses) {
+    for (const bus of validated.buses.toReversed()) {
       const candidates = getBusLayerCandidates(bus)
       const units = getAtomicUnits(
         bus.connectionIds,
