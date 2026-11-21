@@ -14,17 +14,24 @@ const input: WindingBreakoutSolverInput = JSON.parse(
   ).toString(),
 )
 
-test("Glider buses overfill one layer while other layers have room", async () => {
+test("Glider buses share breakout capacity across their allowed layers", async () => {
   const solver = new WindingBreakoutSolver(input)
-  expect(() => solver.solve()).toThrow(
-    "declared breakout edges need 16.91mm but expose only 16.80mm",
-  )
-  expect(solver.solved).toBe(false)
+  solver.solve()
+  expect(solver.solved).toBe(true)
+  const points = solver.getOutput().breakoutPoints
+  expect(points).toHaveLength(54)
+  for (const layer of ["top", "inner2", "bottom"]) {
+    expect(points.filter((point) => point.layer === layer)).toHaveLength(18)
+  }
 
   const graphics = createSolverPhaseVisualization({
     input,
-    phase: "Glider U1: placement failed",
-    detail: "54 connections; needs 16.91mm on a 16.80mm edge",
+    phase: "Glider U1: 54 breakout points placed",
+    detail: "18 per layer; same 16.80mm edge and 0.89mm spacing",
+    state: {
+      referenceOrder: points.map((point) => point.connectionId),
+      breakoutPoints: points,
+    },
   })
   await expect(
     getSvgFromGraphicsObject(graphics, {
